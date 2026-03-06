@@ -57,15 +57,15 @@ private:
     float heldSample[MAX_CHANNELS]    = {};
     int   sampleCounter[MAX_CHANNELS] = {};
 
-    // HPF biquad state — direct form II transposed, per channel
+    // HPF biquad state
     double hpfZ1[MAX_CHANNELS] = {};
     double hpfZ2[MAX_CHANNELS] = {};
 
-    // LPF biquad state — direct form II transposed, per channel
+    // LPF biquad state
     double lpfZ1[MAX_CHANNELS] = {};
     double lpfZ2[MAX_CHANNELS] = {};
 
-    // Stutter: single shared phase (L/R gate in lockstep)
+    // Stutter
     double stutterPhase = 0.0;
 
     double currentSampleRate = 44100.0;
@@ -76,12 +76,17 @@ private:
     std::atomic<float> drive        {  0.0f };
     std::atomic<bool>  clipPre      { true  };
     std::atomic<float> hpfCutoff    { 20.0f };
-    std::atomic<float> hpfReso      {  0.707f };
     std::atomic<float> lpfCutoff    { 20000.0f };
-    std::atomic<float> lpfReso      {  0.707f };
+    std::atomic<float> filterReso   {  0.707f };
     std::atomic<float> stutterRate  {  3.0f };
     std::atomic<float> stutterDepth {  0.0f };
     std::atomic<float> dryWet       {  1.0f };
+
+    // Macro atomics
+    std::atomic<float> macroGlitch  { 0.0f };
+    std::atomic<float> macroMelt    { 0.0f };
+    std::atomic<float> macroRekt    { 0.0f };
+    std::atomic<float> macroVibe    { 0.0f };
 
     //==========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HyperCrushProcessor)

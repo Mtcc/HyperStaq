@@ -35,17 +35,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout HyperCrushProcessor::createP
         juce::AudioParameterFloatAttributes{}.withLabel ("Hz")));
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { "hpfReso", 1 }, "HPF Reso",
-        juce::NormalisableRange<float> (0.5f, 10.0f, 0.01f, 0.4f), 0.707f,
-        juce::AudioParameterFloatAttributes{}.withLabel ("Q")));
-
-    params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "lpfCutoff", 1 }, "LPF Cutoff",
         juce::NormalisableRange<float> (20.0f, 20000.0f, 0.1f, 0.25f), 20000.0f,
         juce::AudioParameterFloatAttributes{}.withLabel ("Hz")));
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { "lpfReso", 1 }, "LPF Reso",
+        juce::ParameterID { "filterReso", 1 }, "Filter Reso",
         juce::NormalisableRange<float> (0.5f, 10.0f, 0.01f, 0.4f), 0.707f,
         juce::AudioParameterFloatAttributes{}.withLabel ("Q")));
 
@@ -70,6 +65,23 @@ juce::AudioProcessorValueTreeState::ParameterLayout HyperCrushProcessor::createP
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f,
         juce::AudioParameterFloatAttributes{}.withLabel ("%")));
 
+    // Macros (0..1, UI-only controls that morph other params)
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "macroGlitch", 1 }, "Glitch",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f));
+
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "macroMelt", 1 }, "Melt",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f));
+
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "macroRekt", 1 }, "Rekt",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f));
+
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "macroVibe", 1 }, "Vibe",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f));
+
     return { params.begin(), params.end() };
 }
 
@@ -80,32 +92,22 @@ HyperCrushProcessor::HyperCrushProcessor()
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Parameters", createParameterLayout())
 {
-    apvts.addParameterListener ("bitDepth",     this);
-    apvts.addParameterListener ("downsample",   this);
-    apvts.addParameterListener ("drive",        this);
-    apvts.addParameterListener ("clipPre",      this);
-    apvts.addParameterListener ("hpfCutoff",    this);
-    apvts.addParameterListener ("hpfReso",      this);
-    apvts.addParameterListener ("lpfCutoff",    this);
-    apvts.addParameterListener ("lpfReso",      this);
-    apvts.addParameterListener ("stutterRate",  this);
-    apvts.addParameterListener ("stutterDepth", this);
-    apvts.addParameterListener ("dryWet",       this);
+    const juce::StringArray ids { "bitDepth", "downsample", "drive", "clipPre",
+                                   "hpfCutoff", "lpfCutoff", "filterReso",
+                                   "stutterRate", "stutterDepth", "dryWet",
+                                   "macroGlitch", "macroMelt", "macroRekt", "macroVibe" };
+    for (auto& id : ids)
+        apvts.addParameterListener (id, this);
 }
 
 HyperCrushProcessor::~HyperCrushProcessor()
 {
-    apvts.removeParameterListener ("bitDepth",     this);
-    apvts.removeParameterListener ("downsample",   this);
-    apvts.removeParameterListener ("drive",        this);
-    apvts.removeParameterListener ("clipPre",      this);
-    apvts.removeParameterListener ("hpfCutoff",    this);
-    apvts.removeParameterListener ("hpfReso",      this);
-    apvts.removeParameterListener ("lpfCutoff",    this);
-    apvts.removeParameterListener ("lpfReso",      this);
-    apvts.removeParameterListener ("stutterRate",  this);
-    apvts.removeParameterListener ("stutterDepth", this);
-    apvts.removeParameterListener ("dryWet",       this);
+    const juce::StringArray ids { "bitDepth", "downsample", "drive", "clipPre",
+                                   "hpfCutoff", "lpfCutoff", "filterReso",
+                                   "stutterRate", "stutterDepth", "dryWet",
+                                   "macroGlitch", "macroMelt", "macroRekt", "macroVibe" };
+    for (auto& id : ids)
+        apvts.removeParameterListener (id, this);
 }
 
 //==============================================================================
@@ -116,12 +118,15 @@ void HyperCrushProcessor::parameterChanged (const juce::String& id, float v)
     else if (id == "drive")        drive.store        (v);
     else if (id == "clipPre")      clipPre.store      (v > 0.5f);
     else if (id == "hpfCutoff")    hpfCutoff.store    (v);
-    else if (id == "hpfReso")      hpfReso.store      (v);
     else if (id == "lpfCutoff")    lpfCutoff.store    (v);
-    else if (id == "lpfReso")      lpfReso.store      (v);
+    else if (id == "filterReso")   filterReso.store   (v);
     else if (id == "stutterRate")  stutterRate.store  (v);
     else if (id == "stutterDepth") stutterDepth.store (v);
     else if (id == "dryWet")       dryWet.store       (v);
+    else if (id == "macroGlitch")  macroGlitch.store  (v);
+    else if (id == "macroMelt")    macroMelt.store    (v);
+    else if (id == "macroRekt")    macroRekt.store    (v);
+    else if (id == "macroVibe")    macroVibe.store    (v);
 }
 
 //==============================================================================
@@ -151,12 +156,15 @@ void HyperCrushProcessor::prepareToPlay (double sampleRate, int /*samplesPerBloc
     drive.store        (*apvts.getRawParameterValue ("drive"));
     clipPre.store      (*apvts.getRawParameterValue ("clipPre") > 0.5f);
     hpfCutoff.store    (*apvts.getRawParameterValue ("hpfCutoff"));
-    hpfReso.store      (*apvts.getRawParameterValue ("hpfReso"));
     lpfCutoff.store    (*apvts.getRawParameterValue ("lpfCutoff"));
-    lpfReso.store      (*apvts.getRawParameterValue ("lpfReso"));
+    filterReso.store   (*apvts.getRawParameterValue ("filterReso"));
     stutterRate.store  (*apvts.getRawParameterValue ("stutterRate"));
     stutterDepth.store (*apvts.getRawParameterValue ("stutterDepth"));
     dryWet.store       (*apvts.getRawParameterValue ("dryWet"));
+    macroGlitch.store  (*apvts.getRawParameterValue ("macroGlitch"));
+    macroMelt.store    (*apvts.getRawParameterValue ("macroMelt"));
+    macroRekt.store    (*apvts.getRawParameterValue ("macroRekt"));
+    macroVibe.store    (*apvts.getRawParameterValue ("macroVibe"));
 
     isPrepared.store (true, std::memory_order_release);
 }
@@ -180,31 +188,80 @@ void HyperCrushProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         juce::ScopedNoDenormals noDenormals;
 
-        // --- Snapshot parameters ---
-        const float bd         = bitDepth.load();
-        const float ds         = downsample.load();
-        const float driveDb    = drive.load();
-        const bool  isPreClip  = clipPre.load();
-        const float cutHz      = juce::jlimit (20.0f, (float)(currentSampleRate * 0.45), hpfCutoff.load());
-        const float Q          = juce::jlimit (0.5f, 10.0f, hpfReso.load());
-        const float lpfCutHz   = juce::jlimit (20.0f, (float)(currentSampleRate * 0.45), lpfCutoff.load());
-        const float lpfQ       = juce::jlimit (0.5f, 10.0f, lpfReso.load());
-        const int   rateIdx    = juce::jlimit (0, 7, (int) stutterRate.load());
-        const float depth      = stutterDepth.load();
-        const float mix        = dryWet.load();
+        // --- Snapshot base parameters ---
+        float bd         = bitDepth.load();
+        float ds         = downsample.load();
+        float driveDb    = drive.load();
+        bool  isPreClip  = clipPre.load();
+        float hpCut      = hpfCutoff.load();
+        float lpCut      = lpfCutoff.load();
+        float reso       = filterReso.load();
+        int   rateIdx    = juce::jlimit (0, 7, (int) stutterRate.load());
+        float depth      = stutterDepth.load();
+        float mix        = dryWet.load();
 
-        const int   hold        = juce::jmax (1, (int) ds);
-        const float levels      = std::pow (2.0f, bd - 1.0f) - 1.0f;
-        const bool  crushOn     = (bd < 15.99f);
-        const bool  dsOn        = (hold > 1);
-        const bool  driveOn     = (driveDb > 0.05f);
-        const bool  hpfOn       = (cutHz > 25.0f);
-        const bool  lpfOn       = (lpfCutHz < (float)(currentSampleRate * 0.44));
-        const bool  stutterOn   = (depth > 0.001f);
+        // --- Apply macros (blend toward target values) ---
+        const float glitch = macroGlitch.load();
+        const float melt   = macroMelt.load();
+        const float rekt   = macroRekt.load();
+        const float vibe   = macroVibe.load();
 
-        const float driveGain   = driveOn ? std::pow (10.0f, driveDb / 20.0f) : 1.0f;
+        // GLITCH: crush + drive + fast gate
+        if (glitch > 0.001f)
+        {
+            bd      = bd      + (1.0f - bd) * glitch;          // toward 1-bit
+            driveDb = driveDb + (30.0f - driveDb) * glitch;    // toward 30dB
+            rateIdx = juce::jlimit (0, 7, (int)(rateIdx + (7 - rateIdx) * glitch + 0.5f)); // toward 1/32
+            depth   = depth   + (1.0f - depth) * glitch;
+        }
 
-        // --- HPF biquad coefficients (computed once per block) ---
+        // MELT: LP sweep down + reso up + slow gate
+        if (melt > 0.001f)
+        {
+            lpCut   = lpCut   + (200.0f - lpCut) * melt;      // toward 200Hz
+            reso    = reso    + (8.0f - reso) * melt;          // toward high reso
+            rateIdx = juce::jlimit (0, 7, (int)(rateIdx + (0 - rateIdx) * melt + 0.5f)); // toward slowest
+        }
+
+        // REKT: max drive + 3-bit + 1/16 gate + full wet
+        if (rekt > 0.001f)
+        {
+            driveDb = driveDb + (40.0f - driveDb) * rekt;
+            bd      = bd      + (3.0f - bd) * rekt;
+            rateIdx = juce::jlimit (0, 7, (int)(rateIdx + (1 - rateIdx) * rekt + 0.5f)); // 1/16
+            depth   = depth   + (1.0f - depth) * rekt;
+            mix     = mix     + (1.0f - mix) * rekt;
+            isPreClip = true;
+        }
+
+        // VIBE: subtle crush + slow gate + light drive + 70% wet
+        if (vibe > 0.001f)
+        {
+            bd      = bd      + (10.0f - bd) * vibe;
+            rateIdx = juce::jlimit (0, 7, (int)(rateIdx + (4 - rateIdx) * vibe + 0.5f)); // 1/2
+            depth   = depth   + (0.4f - depth) * vibe;
+            driveDb = driveDb + (5.0f - driveDb) * vibe;
+            mix     = mix     + (0.7f - mix) * vibe;
+        }
+
+        // --- Derived values ---
+        const float cutHz    = juce::jlimit (20.0f, (float)(currentSampleRate * 0.45), hpCut);
+        const float Q        = juce::jlimit (0.5f, 10.0f, reso);
+        const float lpfCutHz = juce::jlimit (20.0f, (float)(currentSampleRate * 0.45), lpCut);
+        const float lpfQ     = Q; // shared resonance
+
+        const int   hold      = juce::jmax (1, (int) ds);
+        const float levels    = std::pow (2.0f, bd - 1.0f) - 1.0f;
+        const bool  crushOn   = (bd < 15.99f);
+        const bool  dsOn      = (hold > 1);
+        const bool  driveOn   = (driveDb > 0.05f);
+        const bool  hpfOn     = (cutHz > 25.0f);
+        const bool  lpfOn     = (lpfCutHz < (float)(currentSampleRate * 0.44));
+        const bool  stutterOn = (depth > 0.001f);
+
+        const float driveGain = driveOn ? std::pow (10.0f, driveDb / 20.0f) : 1.0f;
+
+        // --- HPF biquad coefficients ---
         double hB0 = 1.0, hB1 = 0.0, hB2 = 0.0, hA1 = 0.0, hA2 = 0.0;
         if (hpfOn)
         {
@@ -220,7 +277,7 @@ void HyperCrushProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             hA2 =  (1.0 - alpha)           * a0inv;
         }
 
-        // --- LPF biquad coefficients (computed once per block) ---
+        // --- LPF biquad coefficients ---
         double lB0 = 1.0, lB1 = 0.0, lB2 = 0.0, lA1 = 0.0, lA2 = 0.0;
         if (lpfOn)
         {
@@ -236,7 +293,7 @@ void HyperCrushProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             lA2 =  (1.0 - alpha)           * a0inv;
         }
 
-        // --- Stutter: sync phase to host transport position ---
+        // --- Stutter ---
         double bpm = 120.0;
         if (auto* ph = getPlayHead())
             if (auto pos = ph->getPosition())
@@ -250,7 +307,6 @@ void HyperCrushProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         const double phaseInc = (bpm / 60.0 / kRateBeats[rateIdx]) / currentSampleRate;
 
-        // --- Sample-outer loop so stutter phase advances once per sample ---
         const int totalCh  = buffer.getNumChannels();
         const int dspCh    = juce::jmin (totalCh, MAX_CHANNELS);
         const int nSamples = buffer.getNumSamples();
@@ -269,11 +325,9 @@ void HyperCrushProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 const float dry = buffer.getSample (ch, i);
                 float s = dry;
 
-                // 1. Pre-clip
                 if (driveOn && isPreClip)
                     s = juce::jlimit (-1.0f, 1.0f, s * driveGain);
 
-                // 2. Sample-rate reduction (sample & hold)
                 if (dsOn)
                 {
                     if (sampleCounter[ch] >= hold)
@@ -285,15 +339,12 @@ void HyperCrushProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     ++sampleCounter[ch];
                 }
 
-                // 3. Bit-depth reduction
                 if (crushOn && levels > 0.0f)
                     s = std::round (s * levels) / levels;
 
-                // 4. Post-clip
                 if (driveOn && !isPreClip)
                     s = juce::jlimit (-1.0f, 1.0f, s * driveGain);
 
-                // 5. Resonant HPF
                 if (hpfOn)
                 {
                     const double in  = s;
@@ -303,7 +354,6 @@ void HyperCrushProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     s = (float) out;
                 }
 
-                // 6. Resonant LPF
                 if (lpfOn)
                 {
                     const double in  = s;
@@ -313,16 +363,11 @@ void HyperCrushProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     s = (float) out;
                 }
 
-                // 7. Stutter gate
                 s *= gate;
-
-                // 8. Dry/wet mix
                 s = dry + (s - dry) * mix;
-
                 buffer.setSample (ch, i, s);
             }
 
-            // Write to scope ring buffer (mono mix, relaxed atomics)
             {
                 float scopeSample = buffer.getSample (0, i);
                 if (dspCh > 1)

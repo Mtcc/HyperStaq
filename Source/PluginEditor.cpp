@@ -1,19 +1,19 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-// Y2K Hyperpop Palette
-static const juce::Colour kBg       (0xff08081a);
-static const juce::Colour kPanel    (0xff0c0c22);
+// Y2K Palette
+static const juce::Colour kBg       (0xff0a0a0f);
+static const juce::Colour kPanel    (0xff0c0c1a);
 static const juce::Colour kHotPink  (0xffff2d95);
 static const juce::Colour kCyan     (0xff00ffff);
 static const juce::Colour kPurple   (0xff9b59f5);
-static const juce::Colour kText     (0xff667788);
-static const juce::Colour kDim      (0xff1a1a33);
-static const juce::Colour kBright   (0xffe0e0ff);
-static const juce::Colour kTrack    (0xff151528);
-static const juce::Colour kScopeBg  (0xff060612);
+static const juce::Colour kWhite    (0xffe0e0f0);
+static const juce::Colour kText     (0xff889099);
+static const juce::Colour kDim      (0xff1a1a2e);
+static const juce::Colour kTrack    (0xff2a2a2a);
+static const juce::Colour kKnobBody (0xff151515);
+static const juce::Colour kScopeBg  (0xff060610);
 
-// Per-section accent colours
 static const juce::Colour kColCrush  = kCyan;
 static const juce::Colour kColDrive  = kHotPink;
 static const juce::Colour kColFilter = kPurple;
@@ -21,7 +21,6 @@ static const juce::Colour kColGate   = kCyan;
 static const juce::Colour kColMix    = kHotPink;
 
 //==============================================================================
-// CRT-style monospace font helper
 static juce::Font crtFont (float size, bool bold = false)
 {
     auto opts = juce::FontOptions (size).withName ("Menlo");
@@ -37,12 +36,16 @@ public:
     {
         setColour (juce::Slider::textBoxBackgroundColourId,  juce::Colour (0x00000000));
         setColour (juce::Slider::textBoxOutlineColourId,     juce::Colour (0x00000000));
-        setColour (juce::Slider::textBoxTextColourId,        juce::Colour (0xff445566));
+        setColour (juce::Slider::textBoxTextColourId,        juce::Colour (0xff667788));
         setColour (juce::Slider::textBoxHighlightColourId,   kCyan.withAlpha (0.2f));
-        setColour (juce::TextEditor::backgroundColourId,     juce::Colour (0xff0e0e1a));
-        setColour (juce::TextEditor::textColourId,           kBright);
-        setColour (juce::TextEditor::outlineColourId,        kPurple);
-        setColour (juce::TextEditor::focusedOutlineColourId, kPurple);
+        setColour (juce::ComboBox::backgroundColourId,       juce::Colour (0xff101018));
+        setColour (juce::ComboBox::outlineColourId,          kCyan.withAlpha (0.5f));
+        setColour (juce::ComboBox::textColourId,             kCyan);
+        setColour (juce::ComboBox::arrowColourId,            kCyan);
+        setColour (juce::PopupMenu::backgroundColourId,      juce::Colour (0xff101018));
+        setColour (juce::PopupMenu::textColourId,            kWhite);
+        setColour (juce::PopupMenu::highlightedBackgroundColourId, kCyan.withAlpha (0.15f));
+        setColour (juce::PopupMenu::highlightedTextColourId, kCyan);
     }
 
     void drawRotarySlider (juce::Graphics& g,
@@ -56,55 +59,51 @@ public:
         const float r  = juce::jmin (width, height) * 0.5f - 2.0f;
         if (r <= 1.0f) return;
 
-        const float trackR = r - 3.0f;
-        const float angle  = startAngle + sliderPos * (endAngle - startAngle);
+        const float arcR  = r - 2.0f;
+        const float angle = startAngle + sliderPos * (endAngle - startAngle);
 
         auto accentVar = slider.getProperties()["accentColour"];
         const juce::Colour accent = accentVar.isVoid()
             ? kCyan : juce::Colour ((juce::uint32)(int64_t) accentVar);
 
+        // Dark body (flat, no gradient)
+        const float bodyR = arcR - 5.0f;
+        if (bodyR > 0.0f)
+        {
+            g.setColour (kKnobBody);
+            g.fillEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+        }
+
         // Track arc
         {
             juce::Path t;
-            t.addCentredArc (cx, cy, trackR, trackR, 0.0f, startAngle, endAngle, true);
+            t.addCentredArc (cx, cy, arcR, arcR, 0.0f, startAngle, endAngle, true);
             g.setColour (kTrack);
             g.strokePath (t, juce::PathStrokeType (2.5f,
                 juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         }
 
-        // Value arc with glow
+        // Value arc with soft glow
         if (sliderPos > 0.0001f)
         {
             juce::Path a;
-            a.addCentredArc (cx, cy, trackR, trackR, 0.0f, startAngle, angle, true);
-            g.setColour (accent.withAlpha (0.12f));
-            g.strokePath (a, juce::PathStrokeType (7.0f,
+            a.addCentredArc (cx, cy, arcR, arcR, 0.0f, startAngle, angle, true);
+            g.setColour (accent.withAlpha (0.08f));
+            g.strokePath (a, juce::PathStrokeType (8.0f,
                 juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-            g.setColour (accent);
+            g.setColour (accent.withAlpha (0.85f));
             g.strokePath (a, juce::PathStrokeType (2.5f,
                 juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         }
 
-        // Body
-        const float bodyR = trackR - 6.0f;
-        if (bodyR > 0.0f)
+        // Glowing dot on arc at current value
         {
-            juce::ColourGradient grad (juce::Colour (0xff181830), cx, cy - bodyR,
-                                       juce::Colour (0xff0c0c1a), cx, cy + bodyR, false);
-            g.setGradientFill (grad);
-            g.fillEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
-            g.setColour (juce::Colour (0xff282840));
-            g.drawEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f, 1.0f);
-
-            // Indicator dot with glow
-            const float dotR    = 2.0f;
-            const float dotDist = juce::jmax (0.0f, bodyR - 6.0f);
-            const float dotX    = cx + std::sin (angle) * dotDist;
-            const float dotY    = cy - std::cos (angle) * dotDist;
-            g.setColour (accent.withAlpha (0.25f));
-            g.fillEllipse (dotX - dotR * 3.f, dotY - dotR * 3.f, dotR * 6.f, dotR * 6.f);
+            const float dotX = cx + std::sin (angle) * arcR;
+            const float dotY = cy - std::cos (angle) * arcR;
+            g.setColour (accent.withAlpha (0.2f));
+            g.fillEllipse (dotX - 5.0f, dotY - 5.0f, 10.0f, 10.0f);
             g.setColour (accent);
-            g.fillEllipse (dotX - dotR, dotY - dotR, dotR * 2.0f, dotR * 2.0f);
+            g.fillEllipse (dotX - 2.5f, dotY - 2.5f, 5.0f, 5.0f);
         }
     }
 
@@ -129,116 +128,163 @@ public:
 };
 
 //==============================================================================
-// Scope Component
+// Scope
 
 void ScopeComponent::updateScope()
 {
     const int size = HyperCrushProcessor::SCOPE_SIZE;
     int wp = processor.scopeWritePos.load (std::memory_order_relaxed);
+    bool hasSignal = false;
     for (int i = 0; i < size; ++i)
     {
         int idx = (wp + i) % size;
-        displayBuffer[(size_t) i] = processor.scopeBuffer[idx].load (std::memory_order_relaxed);
+        float v = processor.scopeBuffer[idx].load (std::memory_order_relaxed);
+        displayBuffer[(size_t) i] = v;
+        if (std::abs (v) > 0.0001f) hasSignal = true;
     }
+    // Idle animation phase
+    if (!hasSignal)
+        idlePhase += 0.04f;
 }
 
 void ScopeComponent::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
 
-    // Background
     g.setColour (kScopeBg);
-    g.fillRoundedRectangle (bounds, 4.0f);
+    g.fillRoundedRectangle (bounds, 6.0f);
 
-    // Border
-    g.setColour (kPurple.withAlpha (0.25f));
-    g.drawRoundedRectangle (bounds.reduced (0.5f), 4.0f, 1.0f);
+    g.setColour (kPurple.withAlpha (0.2f));
+    g.drawRoundedRectangle (bounds.reduced (0.5f), 6.0f, 1.0f);
 
-    // Grid lines
-    g.setColour (juce::Colour (0x0cffffff));
-    float midY = bounds.getCentreY();
-    g.drawHorizontalLine ((int) midY, bounds.getX(), bounds.getRight());
-    for (int i = 1; i < 4; ++i)
+    // Grid lines (3 horizontal at 25%, 50%, 75%)
+    g.setColour (kPurple.withAlpha (0.07f));
+    for (int i = 1; i <= 3; ++i)
     {
-        float gx = bounds.getX() + (float) i * bounds.getWidth() / 4.0f;
-        g.drawVerticalLine ((int) gx, bounds.getY(), bounds.getBottom());
+        float gy = bounds.getY() + (float) i * bounds.getHeight() / 4.0f;
+        g.drawHorizontalLine ((int) gy, bounds.getX() + 4.0f, bounds.getRight() - 4.0f);
     }
 
-    // Waveform
     const auto bufSize = displayBuffer.size();
-    if (bufSize >= 2)
-    {
-        float w  = bounds.getWidth();
-        float h  = bounds.getHeight();
-        float cy = bounds.getCentreY();
+    if (bufSize < 2) return;
 
-        juce::Path waveform;
+    float w  = bounds.getWidth();
+    float h  = bounds.getHeight();
+    float cy = bounds.getCentreY();
+
+    // Check if we have real audio
+    bool hasSignal = false;
+    for (size_t i = 0; i < bufSize && !hasSignal; ++i)
+        if (std::abs (displayBuffer[i]) > 0.0001f) hasSignal = true;
+
+    juce::Path waveform;
+    for (size_t i = 0; i < bufSize; ++i)
+    {
+        float px = bounds.getX() + (float) i / (float)(bufSize - 1) * w;
+        float val;
+        if (hasSignal)
+            val = juce::jlimit (-1.0f, 1.0f, displayBuffer[i]);
+        else
+            val = std::sin (idlePhase + (float) i * 0.05f) * 0.15f;
+
+        float py = cy - val * h * 0.42f;
+        if (i == 0) waveform.startNewSubPath (px, py);
+        else        waveform.lineTo (px, py);
+    }
+
+    // Glow
+    g.setColour (kCyan.withAlpha (0.05f));
+    g.strokePath (waveform, juce::PathStrokeType (10.0f));
+    g.setColour (kCyan.withAlpha (0.12f));
+    g.strokePath (waveform, juce::PathStrokeType (4.0f));
+
+    // Chromatic aberration ghost (pink, offset)
+    {
+        juce::Path ghost;
         for (size_t i = 0; i < bufSize; ++i)
         {
-            float px = bounds.getX() + (float) i / (float)(bufSize - 1) * w;
-            float py = cy - juce::jlimit (-1.0f, 1.0f, displayBuffer[i]) * h * 0.42f;
-            if (i == 0) waveform.startNewSubPath (px, py);
-            else        waveform.lineTo (px, py);
+            float px = bounds.getX() + 1.0f + (float) i / (float)(bufSize - 1) * w;
+            float val;
+            if (hasSignal)
+                val = juce::jlimit (-1.0f, 1.0f, displayBuffer[i]);
+            else
+                val = std::sin (idlePhase + (float) i * 0.05f) * 0.15f;
+            float py = cy - val * h * 0.42f + 2.0f;
+            if (i == 0) ghost.startNewSubPath (px, py);
+            else        ghost.lineTo (px, py);
         }
-
-        // Glow layers
-        g.setColour (kCyan.withAlpha (0.06f));
-        g.strokePath (waveform, juce::PathStrokeType (10.0f));
-        g.setColour (kCyan.withAlpha (0.15f));
-        g.strokePath (waveform, juce::PathStrokeType (4.0f));
-
-        // Chromatic aberration — slight pink offset
-        {
-            juce::Path offset;
-            for (size_t i = 0; i < bufSize; ++i)
-            {
-                float px = bounds.getX() + 2.0f + (float) i / (float)(bufSize - 1) * w;
-                float py = cy - juce::jlimit (-1.0f, 1.0f, displayBuffer[i]) * h * 0.42f;
-                if (i == 0) offset.startNewSubPath (px, py);
-                else        offset.lineTo (px, py);
-            }
-            g.setColour (kHotPink.withAlpha (0.1f));
-            g.strokePath (offset, juce::PathStrokeType (1.5f));
-        }
-
-        // Main waveform
-        g.setColour (kCyan.withAlpha (0.85f));
-        g.strokePath (waveform, juce::PathStrokeType (1.5f));
+        g.setColour (kHotPink.withAlpha (0.12f));
+        g.strokePath (ghost, juce::PathStrokeType (2.0f));
     }
 
-    // Scanlines over scope
-    g.setColour (juce::Colour (0x0a000000));
+    // Main waveform
+    g.setColour (kCyan.withAlpha (0.9f));
+    g.strokePath (waveform, juce::PathStrokeType (2.0f));
+
+    // Scanlines
+    g.setColour (juce::Colour (0x08000000));
     for (int sy = (int) bounds.getY(); sy < (int) bounds.getBottom(); sy += 2)
         g.fillRect ((int) bounds.getX(), sy, (int) bounds.getWidth(), 1);
 }
 
 //==============================================================================
-// Layout
-static constexpr int kTitleH   = 48;
-static constexpr int kScopeTop = 52;
-static constexpr int kScopeH   = 130;
-static constexpr int kNumCols  = 5;
+// Presets
 
-struct SectionInfo { const char* label; juce::Colour colour; };
-static const SectionInfo kSections[kNumCols] = {
-    { "CRUSH",  kColCrush  },
-    { "DRIVE",  kColDrive  },
-    { "FILTER", kColFilter },
-    { "GATE",   kColGate   },
-    { "MIX",    kColMix    },
+const std::vector<PresetEntry>& HyperCrushEditor::getPresets()
+{
+    static const std::vector<PresetEntry> presets = {
+        // name,        bitD  ds    drv   pre    hpf     lpf      reso    rate  dep   wet
+        { "INIT",       16.f, 1.f,  0.f,  true,  20.f,   20000.f, 0.707f, 3.f,  0.f,  1.f   },
+        { "100 GECS",   4.f,  9.6f, 7.f,  true,  2000.f, 20000.f, 5.02f,  1.f,  1.f,  1.f   },
+        { "GLITCH VOCAL",8.f, 1.f,  3.f,  false, 20.f,   3000.f,  3.47f,  3.f,  0.5f, 0.7f  },
+        { "CIRCUIT BENT",2.f, 3.2f, 0.f,  true,  20.f,   20000.f, 0.707f, 3.f,  0.f,  1.f   },
+        { "Y2K RAVE",   6.f,  1.f,  5.f,  false, 20.f,   800.f,   6.79f,  2.f,  0.6f, 0.85f },
+        { "NIGHTCORE",  10.f, 1.f,  2.f,  true,  500.f,  20000.f, 0.707f, 0.f,  0.6f, 0.5f  },
+    };
+    return presets;
+}
+
+//==============================================================================
+// Layout constants
+static constexpr int kTitleH    = 40;
+static constexpr int kMacroH    = 90;
+static constexpr int kScopeH    = 140;
+static constexpr int kNumCols   = 6;
+static constexpr int kPad       = 10;
+
+struct SectionInfo { const char* label; int colStart; int colSpan; juce::Colour colour; };
+static const SectionInfo kSections[] = {
+    { "CRUSH",  0, 2, kColCrush  },
+    { "DRIVE",  2, 1, kColDrive  },
+    { "FILTER", 3, 1, kColFilter },
+    { "GATE",   4, 1, kColGate   },
+    { "MIX",    5, 1, kColMix    },
 };
 
 //==============================================================================
 HyperCrushEditor::HyperCrushEditor (HyperCrushProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p), scopeComponent (p)
 {
-    setSize (700, 500);
+    setSize (820, 620);
     setResizable (false, false);
 
     lnf = std::make_unique<CrushLookAndFeel>();
 
     addAndMakeVisible (scopeComponent);
 
+    // --- Preset box ---
+    presetBox.setLookAndFeel (lnf.get());
+    presetBox.setTextWhenNothingSelected ("PRESETS");
+    auto& presets = getPresets();
+    for (int i = 0; i < (int) presets.size(); ++i)
+        presetBox.addItem (presets[(size_t)i].name, i + 1);
+    presetBox.onChange = [this]() {
+        int idx = presetBox.getSelectedItemIndex();
+        if (idx >= 0) applyPreset (idx);
+    };
+    addAndMakeVisible (presetBox);
+
+    // --- Setup helper ---
     auto setupSlider = [&](juce::Slider& sl, juce::Label& lb,
                            const juce::String& txt, juce::Colour accent)
     {
@@ -250,44 +296,54 @@ HyperCrushEditor::HyperCrushEditor (HyperCrushProcessor& p)
 
         lb.setText              (txt, juce::dontSendNotification);
         lb.setJustificationType (juce::Justification::centred);
-        lb.setColour            (juce::Label::textColourId, kText);
+        lb.setColour            (juce::Label::textColourId, kWhite);
         lb.setFont              (crtFont (9.0f, true));
         addAndMakeVisible (lb);
     };
 
-    setupSlider (bitDepthSlider,     bitDepthLabel,     "BIT DEPTH",   kColCrush);
-    setupSlider (downsampleSlider,   downsampleLabel,   "SAMPLE RATE", kColCrush);
-    setupSlider (driveSlider,        driveLabel,        "DRIVE",       kColDrive);
-    setupSlider (hpfCutoffSlider,    hpfCutoffLabel,    "HP CUTOFF",   kColFilter);
-    setupSlider (hpfResoSlider,      hpfResoLabel,      "HP RESO",     kColFilter);
-    setupSlider (lpfCutoffSlider,    lpfCutoffLabel,    "LP CUTOFF",   kColFilter);
-    setupSlider (lpfResoSlider,      lpfResoLabel,      "LP RESO",     kColFilter);
-    setupSlider (stutterRateSlider,  stutterRateLabel,  "RATE",        kColGate);
-    setupSlider (stutterDepthSlider, stutterDepthLabel, "DEPTH",       kColGate);
-    setupSlider (dryWetSlider,       dryWetLabel,       "DRY/WET",     kColMix);
+    // Macros (larger)
+    setupSlider (glitchSlider, glitchLabel, "GLITCH", kCyan);
+    setupSlider (meltSlider,   meltLabel,   "MELT",   kPurple);
+    setupSlider (rektSlider,   rektLabel,   "REKT",   kHotPink);
+    setupSlider (vibeSlider,   vibeLabel,   "VIBE",   kWhite);
 
-    // PRE/POST toggle
+    // Controls
+    setupSlider (bitDepthSlider,     bitDepthLabel,     "CRUNCH",  kColCrush);
+    setupSlider (downsampleSlider,   downsampleLabel,   "MANGLE",  kColCrush);
+    setupSlider (driveSlider,        driveLabel,        "SMASH",   kColDrive);
+    setupSlider (hpfCutoffSlider,    hpfCutoffLabel,    "SLICE",   kColFilter);
+    setupSlider (lpfCutoffSlider,    lpfCutoffLabel,    "SCREAM",  kColFilter);
+    setupSlider (filterResoSlider,   filterResoLabel,   "RESO",    kColFilter);
+    setupSlider (stutterRateSlider,  stutterRateLabel,  "STUTTER", kColGate);
+    setupSlider (stutterDepthSlider, stutterDepthLabel, "CHOP",    kColGate);
+    setupSlider (dryWetSlider,       dryWetLabel,       "BLEND",   kColMix);
+
+    // CLIP toggle
     clipPreButton.getProperties().set ("accentColour", (int64_t)(juce::uint32) kColDrive.getARGB());
     clipPreButton.setLookAndFeel (lnf.get());
     addAndMakeVisible (clipPreButton);
     clipPreLabel.setText            ("CLIP", juce::dontSendNotification);
     clipPreLabel.setJustificationType (juce::Justification::centred);
-    clipPreLabel.setColour          (juce::Label::textColourId, kText);
+    clipPreLabel.setColour          (juce::Label::textColourId, kWhite);
     clipPreLabel.setFont            (crtFont (9.0f, true));
     addAndMakeVisible (clipPreLabel);
 
+    // APVTS attachments
     auto& av = processorRef.apvts;
-    bitDepthAttachment     = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "bitDepth",      bitDepthSlider);
-    downsampleAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "downsample",    downsampleSlider);
-    driveAttachment        = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "drive",         driveSlider);
-    hpfCutoffAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "hpfCutoff",     hpfCutoffSlider);
-    hpfResoAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "hpfReso",       hpfResoSlider);
-    lpfCutoffAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "lpfCutoff",     lpfCutoffSlider);
-    lpfResoAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "lpfReso",       lpfResoSlider);
-    stutterRateAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "stutterRate",   stutterRateSlider);
-    stutterDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "stutterDepth",  stutterDepthSlider);
-    dryWetAttachment       = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "dryWet",        dryWetSlider);
-    clipPreAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (av, "clipPre",       clipPreButton);
+    bitDepthAtt     = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "bitDepth",      bitDepthSlider);
+    downsampleAtt   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "downsample",    downsampleSlider);
+    driveAtt        = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "drive",         driveSlider);
+    hpfCutoffAtt    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "hpfCutoff",     hpfCutoffSlider);
+    lpfCutoffAtt    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "lpfCutoff",     lpfCutoffSlider);
+    filterResoAtt   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "filterReso",    filterResoSlider);
+    stutterRateAtt  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "stutterRate",   stutterRateSlider);
+    stutterDepthAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "stutterDepth",  stutterDepthSlider);
+    dryWetAtt       = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "dryWet",        dryWetSlider);
+    clipPreAtt      = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (av, "clipPre",       clipPreButton);
+    glitchAtt       = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "macroGlitch",   glitchSlider);
+    meltAtt         = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "macroMelt",     meltSlider);
+    rektAtt         = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "macroRekt",     rektSlider);
+    vibeAtt         = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "macroVibe",     vibeSlider);
 
     startTimerHz (30);
 }
@@ -295,13 +351,45 @@ HyperCrushEditor::HyperCrushEditor (HyperCrushProcessor& p)
 HyperCrushEditor::~HyperCrushEditor()
 {
     stopTimer();
-    for (auto* sl : { &bitDepthSlider, &downsampleSlider, &driveSlider,
-                      &hpfCutoffSlider, &hpfResoSlider,
-                      &lpfCutoffSlider, &lpfResoSlider,
+    for (auto* sl : { &glitchSlider, &meltSlider, &rektSlider, &vibeSlider,
+                      &bitDepthSlider, &downsampleSlider, &driveSlider,
+                      &hpfCutoffSlider, &lpfCutoffSlider, &filterResoSlider,
                       &stutterRateSlider, &stutterDepthSlider,
                       &dryWetSlider })
         sl->setLookAndFeel (nullptr);
     clipPreButton.setLookAndFeel (nullptr);
+    presetBox.setLookAndFeel (nullptr);
+}
+
+//==============================================================================
+void HyperCrushEditor::applyPreset (int index)
+{
+    auto& presets = getPresets();
+    if (index < 0 || index >= (int) presets.size()) return;
+    const auto& pr = presets[(size_t) index];
+
+    auto& av = processorRef.apvts;
+    auto setParam = [&](const juce::String& id, float val) {
+        if (auto* p = av.getParameter (id))
+            p->setValueNotifyingHost (p->convertTo0to1 (val));
+    };
+
+    setParam ("bitDepth",      pr.bitDepth);
+    setParam ("downsample",    pr.downsample);
+    setParam ("drive",         pr.drive);
+    setParam ("clipPre",       pr.clipPre ? 1.0f : 0.0f);
+    setParam ("hpfCutoff",     pr.hpfCutoff);
+    setParam ("lpfCutoff",     pr.lpfCutoff);
+    setParam ("filterReso",    pr.filterReso);
+    setParam ("stutterRate",   pr.stutterRate);
+    setParam ("stutterDepth",  pr.stutterDepth);
+    setParam ("dryWet",        pr.dryWet);
+
+    // Reset macros on preset load
+    setParam ("macroGlitch", 0.0f);
+    setParam ("macroMelt",   0.0f);
+    setParam ("macroRekt",   0.0f);
+    setParam ("macroVibe",   0.0f);
 }
 
 //==============================================================================
@@ -310,11 +398,14 @@ void HyperCrushEditor::timerCallback()
     scopeComponent.updateScope();
     scopeComponent.repaint();
 
+    scanlineOffset += 0.5f;
+    if (scanlineOffset > 4.0f) scanlineOffset -= 4.0f;
+
     ++glitchCounter;
     if (glitchCounter % 5 == 0)
     {
         glitchBars.clear();
-        if (rng.nextFloat() < 0.35f)
+        if (rng.nextFloat() < 0.25f)
         {
             int n = rng.nextInt (3) + 1;
             for (int i = 0; i < n; ++i)
@@ -322,9 +413,9 @@ void HyperCrushEditor::timerCallback()
                 GlitchBar bar;
                 bar.y      = rng.nextInt (getHeight());
                 bar.h      = rng.nextInt (3) + 1;
-                bar.offset = rng.nextFloat() * 8.0f - 4.0f;
-                bar.colour = (rng.nextBool() ? kHotPink : kCyan)
-                                 .withAlpha (rng.nextFloat() * 0.1f + 0.03f);
+                bar.offset = rng.nextFloat() * 6.0f - 3.0f;
+                juce::Colour colors[] = { kHotPink, kCyan, kPurple };
+                bar.colour = colors[rng.nextInt (3)].withAlpha (rng.nextFloat() * 0.05f + 0.02f);
                 glitchBars.push_back (bar);
             }
         }
@@ -335,70 +426,75 @@ void HyperCrushEditor::timerCallback()
 //==============================================================================
 void HyperCrushEditor::paint (juce::Graphics& g)
 {
-    // Background
-    g.fillAll (kBg);
+    // Background with radial gradient
+    {
+        juce::ColourGradient grad (juce::Colour (0xff100f1a), getWidth() * 0.5f, getHeight() * 0.5f,
+                                    kBg, 0.0f, 0.0f, true);
+        g.setGradientFill (grad);
+        g.fillAll();
+    }
 
-    // Subtle background grid
-    g.setColour (juce::Colour (0x04ffffff));
-    for (int gx = 0; gx < getWidth(); gx += 24)
-        g.drawVerticalLine (gx, 0.0f, (float) getHeight());
-    for (int gy = 0; gy < getHeight(); gy += 24)
-        g.drawHorizontalLine (gy, 0.0f, (float) getWidth());
-
-    // Title bar background
+    // ---- Title bar ----
     g.setColour (kPanel);
     g.fillRect (0, 0, getWidth(), kTitleH);
 
-    // Title underline glow
-    g.setColour (kPurple.withAlpha (0.4f));
-    g.fillRect (0, kTitleH - 2, getWidth(), 2);
-    g.setColour (kHotPink.withAlpha (0.15f));
+    // Title accent line
+    g.setColour (kHotPink.withAlpha (0.6f));
     g.fillRect (0, kTitleH - 1, getWidth(), 1);
 
     // Title text with chromatic aberration
-    auto titleArea = juce::Rectangle<int> (0, 0, getWidth(), kTitleH);
+    auto titleArea = juce::Rectangle<int> (kPad, 0, 300, kTitleH);
     g.setFont (crtFont (20.0f, true));
-    g.setColour (kHotPink.withAlpha (0.35f));
-    g.drawText ("HYPERCRUSH", titleArea.translated (-2, 0), juce::Justification::centred);
-    g.setColour (kCyan.withAlpha (0.3f));
-    g.drawText ("HYPERCRUSH", titleArea.translated (2, 0), juce::Justification::centred);
-    g.setColour (kBright);
-    g.drawText ("HYPERCRUSH", titleArea, juce::Justification::centred);
+    g.setColour (kCyan.withAlpha (0.25f));
+    g.drawText ("HYPERCRUSH", titleArea.translated (2, 1), juce::Justification::centredLeft);
+    g.setColour (kHotPink);
+    g.drawText ("HYPERCRUSH", titleArea, juce::Justification::centredLeft);
 
-    // Subtitle
+    // Y2K EDITION
     g.setFont (crtFont (9.0f));
-    g.setColour (kPurple.withAlpha (0.6f));
-    g.drawText ("Y2K EDITION", juce::Rectangle<int> (getWidth() - 160, 0, 150, kTitleH),
+    g.setColour (kCyan.withAlpha (0.6f));
+    g.drawText ("Y2K EDITION", juce::Rectangle<int> (getWidth() - 110, 0, 100, kTitleH),
                 juce::Justification::centredRight);
 
-    // Column separators + section labels
-    const int colW    = getWidth() / kNumCols;
-    const int knobTop = kScopeTop + kScopeH + 10;
+    // ---- Section headers in control grid ----
+    const int controlTop = kTitleH + kMacroH + kScopeH + kPad * 2;
+    const int colW = getWidth() / kNumCols;
 
-    for (int col = 0; col < kNumCols; ++col)
+    for (const auto& sec : kSections)
     {
-        const int x = col * colW;
+        int x = sec.colStart * colW;
+        int w = sec.colSpan * colW;
 
-        if (col > 0)
-        {
-            g.setColour (kDim.withAlpha (0.5f));
-            g.fillRect (x, knobTop + 4, 1, getHeight() - knobTop - 8);
-        }
+        // Header glow
+        g.setColour (sec.colour.withAlpha (0.06f));
+        g.fillRect (x, controlTop, w, 18);
 
-        const auto& sec = kSections[col];
-        g.setColour (sec.colour.withAlpha (0.7f));
-        g.setFont (crtFont (9.0f, true));
-        g.drawText (sec.label,
-                    juce::Rectangle<int> (x, knobTop + 2, colW, 18),
+        g.setColour (sec.colour.withAlpha (0.8f));
+        g.setFont (crtFont (10.0f, true));
+        g.drawText (sec.label, juce::Rectangle<int> (x, controlTop, w, 18),
                     juce::Justification::centred);
     }
 
-    // Scanlines over entire UI
-    g.setColour (juce::Colour (0x06000008));
-    for (int sy = 0; sy < getHeight(); sy += 2)
-        g.fillRect (0, sy, getWidth(), 1);
+    // Column separators
+    for (int col = 1; col < kNumCols; ++col)
+    {
+        int x = col * colW;
+        // Skip separator between col 0 and 1 (both CRUSH)
+        if (col == 1) continue;
+        g.setColour (kDim);
+        g.fillRect (x, controlTop + 20, 1, getHeight() - controlTop - 24);
+    }
 
-    // Glitch bars
+    // Light separator between the two CRUSH columns
+    g.setColour (kDim.withAlpha (0.3f));
+    g.fillRect (colW, controlTop + 20, 1, getHeight() - controlTop - 24);
+
+    // ---- Scrolling scanlines ----
+    g.setColour (juce::Colour (0x05000008));
+    for (float sy = scanlineOffset; sy < (float) getHeight(); sy += 4.0f)
+        g.fillRect (0.0f, sy, (float) getWidth(), 1.0f);
+
+    // ---- Glitch bars ----
     for (const auto& bar : glitchBars)
     {
         g.setColour (bar.colour);
@@ -406,66 +502,84 @@ void HyperCrushEditor::paint (juce::Graphics& g)
     }
 }
 
+//==============================================================================
 void HyperCrushEditor::resized()
 {
-    const int colW    = getWidth() / kNumCols;   // 140
-    const int scopeX  = 14;
-    const int scopeW  = getWidth() - 28;
+    const int colW = getWidth() / kNumCols;  // ~136
 
-    scopeComponent.setBounds (scopeX, kScopeTop, scopeW, kScopeH);
+    // ---- Title bar: preset dropdown ----
+    presetBox.setBounds (getWidth() - 280, 8, 150, 24);
 
-    const int knobTop = kScopeTop + kScopeH + 10;
-    const int bodyTop = knobTop + 22;              // below section labels
-    const int bodyH   = getHeight() - bodyTop - 4;
-    const int halfH   = bodyH / 2;
-    const int lblH    = 12;
-    const int pad     = 8;
-
-    auto placeKnob = [&](juce::Slider& sl, juce::Label& lb, int col, int row)
+    // ---- Macro row ----
     {
-        auto cell = juce::Rectangle<int> (col * colW, bodyTop + row * halfH, colW, halfH)
-                        .reduced (pad, 3);
+        const int macroY = kTitleH + 5;
+        const int macroKnobW = 120;
+        const int totalMacroW = macroKnobW * 4 + kPad * 3;
+        int mx = (getWidth() - totalMacroW) / 2;
+        const int lblH = 13;
+        const int knobH = kMacroH - lblH - 8;
+
+        struct MacroInfo { juce::Slider& sl; juce::Label& lb; };
+        MacroInfo macros[] = {
+            { glitchSlider, glitchLabel },
+            { meltSlider,   meltLabel   },
+            { rektSlider,   rektLabel   },
+            { vibeSlider,   vibeLabel   },
+        };
+
+        for (auto& m : macros)
+        {
+            m.lb.setBounds (mx, macroY, macroKnobW, lblH);
+            m.sl.setBounds (mx, macroY + lblH, macroKnobW, knobH);
+            mx += macroKnobW + kPad;
+        }
+    }
+
+    // ---- Oscilloscope ----
+    const int scopeY = kTitleH + kMacroH;
+    scopeComponent.setBounds (kPad, scopeY, getWidth() - kPad * 2, kScopeH);
+
+    // ---- Controls grid ----
+    const int controlTop = scopeY + kScopeH + kPad;
+    const int headerH = 20;
+    const int bodyTop = controlTop + headerH;
+    const int bodyH = getHeight() - bodyTop - 6;
+    const int halfH = bodyH / 2;
+    const int thirdH = bodyH / 3;
+    const int lblH = 13;
+
+    auto placeKnob = [&](juce::Slider& sl, juce::Label& lb, int col, int yOff, int cellH)
+    {
+        auto cell = juce::Rectangle<int> (col * colW, bodyTop + yOff, colW, cellH).reduced (8, 3);
         lb.setBounds (cell.removeFromTop (lblH));
         sl.setBounds (cell);
     };
 
-    // Col 0 - CRUSH
-    placeKnob (bitDepthSlider,    bitDepthLabel,    0, 0);
-    placeKnob (downsampleSlider,  downsampleLabel,  0, 1);
+    // Col 0 — CRUNCH (bit depth)
+    placeKnob (bitDepthSlider,   bitDepthLabel,   0, 0,     halfH);
+    // Col 1 — MANGLE (downsample)
+    placeKnob (downsampleSlider, downsampleLabel, 1, 0,     halfH);
 
-    // Col 1 - DRIVE
-    placeKnob (driveSlider, driveLabel, 1, 0);
+    // Center the single knobs vertically in their half
+    // (leave bottom half of col 0 and 1 empty — clean look)
+
+    // Col 2 — DRIVE: SMASH knob top half, CLIP toggle bottom half
+    placeKnob (driveSlider, driveLabel, 2, 0, halfH);
     {
-        auto cell = juce::Rectangle<int> (colW, bodyTop + halfH, colW, halfH).reduced (pad, 3);
-        clipPreLabel.setBounds  (cell.removeFromTop (lblH));
-        clipPreButton.setBounds (cell.reduced (0, halfH / 5));
+        auto cell = juce::Rectangle<int> (2 * colW, bodyTop + halfH, colW, halfH).reduced (8, 3);
+        clipPreLabel.setBounds (cell.removeFromTop (lblH));
+        clipPreButton.setBounds (cell.reduced (10, cell.getHeight() / 4));
     }
 
-    // Col 2 - FILTER (4 quarter-rows)
-    {
-        const int quarterH = bodyH / 4;
-        auto filterKnob = [&](juce::Slider& sl, juce::Label& lb, int row)
-        {
-            auto cell = juce::Rectangle<int> (2 * colW, bodyTop + row * quarterH, colW, quarterH)
-                            .reduced (pad, 1);
-            lb.setBounds (cell.removeFromTop (lblH));
-            sl.setBounds (cell);
-        };
-        filterKnob (hpfCutoffSlider, hpfCutoffLabel, 0);
-        filterKnob (hpfResoSlider,   hpfResoLabel,   1);
-        filterKnob (lpfCutoffSlider, lpfCutoffLabel, 2);
-        filterKnob (lpfResoSlider,   lpfResoLabel,   3);
-    }
+    // Col 3 — FILTER: SLICE, SCREAM, RESO in 3 rows
+    placeKnob (hpfCutoffSlider,  hpfCutoffLabel,  3, 0,          thirdH);
+    placeKnob (lpfCutoffSlider,  lpfCutoffLabel,  3, thirdH,     thirdH);
+    placeKnob (filterResoSlider, filterResoLabel,  3, thirdH * 2, thirdH);
 
-    // Col 3 - GATE
-    placeKnob (stutterRateSlider,  stutterRateLabel,  3, 0);
-    placeKnob (stutterDepthSlider, stutterDepthLabel, 3, 1);
+    // Col 4 — GATE: STUTTER, CHOP
+    placeKnob (stutterRateSlider,  stutterRateLabel,  4, 0,     halfH);
+    placeKnob (stutterDepthSlider, stutterDepthLabel, 4, halfH, halfH);
 
-    // Col 4 - MIX (single knob, vertically centered)
-    {
-        const int mixY = bodyTop + (bodyH - halfH) / 2;
-        auto cell = juce::Rectangle<int> (4 * colW, mixY, colW, halfH).reduced (pad, 3);
-        dryWetLabel.setBounds (cell.removeFromTop (lblH));
-        dryWetSlider.setBounds (cell);
-    }
+    // Col 5 — MIX: BLEND centered vertically
+    placeKnob (dryWetSlider, dryWetLabel, 5, (bodyH - halfH) / 2, halfH);
 }

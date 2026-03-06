@@ -17,9 +17,21 @@ public:
     void updateScope();
     void paint (juce::Graphics&) override;
 
+    float idlePhase = 0.0f;
+
 private:
     HyperCrushProcessor& processor;
     std::vector<float> displayBuffer;
+};
+
+//==============================================================================
+struct PresetEntry
+{
+    juce::String name;
+    float bitDepth, downsample, drive;
+    bool clipPre;
+    float hpfCutoff, lpfCutoff, filterReso;
+    float stutterRate, stutterDepth, dryWet;
 };
 
 //==============================================================================
@@ -35,6 +47,7 @@ public:
 
 private:
     void timerCallback() override;
+    void applyPreset (int index);
 
     HyperCrushProcessor& processorRef;
 
@@ -44,12 +57,22 @@ private:
     // Glitch animation state
     juce::Random rng;
     int glitchCounter = 0;
+    float scanlineOffset = 0.0f;
     struct GlitchBar { int y, h; float offset; juce::Colour colour; };
     std::vector<GlitchBar> glitchBars;
 
+    // Preset dropdown
+    juce::ComboBox presetBox;
+    static const std::vector<PresetEntry>& getPresets();
+
+
+    // Macro knobs
+    juce::Slider glitchSlider, meltSlider, rektSlider, vibeSlider;
+    juce::Label  glitchLabel,  meltLabel,  rektLabel,  vibeLabel;
+
     // CRUSH
-    juce::Slider bitDepthSlider,   downsampleSlider;
-    juce::Label  bitDepthLabel,    downsampleLabel;
+    juce::Slider bitDepthSlider, downsampleSlider;
+    juce::Label  bitDepthLabel,  downsampleLabel;
 
     // DRIVE
     juce::Slider       driveSlider;
@@ -58,8 +81,8 @@ private:
     juce::Label        clipPreLabel;
 
     // FILTER
-    juce::Slider hpfCutoffSlider, hpfResoSlider, lpfCutoffSlider, lpfResoSlider;
-    juce::Label  hpfCutoffLabel,  hpfResoLabel,  lpfCutoffLabel,  lpfResoLabel;
+    juce::Slider hpfCutoffSlider, lpfCutoffSlider, filterResoSlider;
+    juce::Label  hpfCutoffLabel,  lpfCutoffLabel,  filterResoLabel;
 
     // GATE
     juce::Slider stutterRateSlider, stutterDepthSlider;
@@ -69,16 +92,15 @@ private:
     juce::Slider dryWetSlider;
     juce::Label  dryWetLabel;
 
+    // APVTS attachments
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
-        bitDepthAttachment, downsampleAttachment,
-        driveAttachment,
-        hpfCutoffAttachment, hpfResoAttachment,
-        lpfCutoffAttachment, lpfResoAttachment,
-        stutterRateAttachment, stutterDepthAttachment,
-        dryWetAttachment;
+        bitDepthAtt, downsampleAtt, driveAtt,
+        hpfCutoffAtt, lpfCutoffAtt, filterResoAtt,
+        stutterRateAtt, stutterDepthAtt, dryWetAtt,
+        glitchAtt, meltAtt, rektAtt, vibeAtt;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
-        clipPreAttachment;
+        clipPreAtt;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HyperCrushEditor)
 };
