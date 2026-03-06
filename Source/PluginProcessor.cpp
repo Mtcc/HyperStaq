@@ -1,13 +1,13 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-// Musical note divisions in beats (1/32 → 4 bars)
+// Musical note divisions in beats (1/32 -> 4 bars)
 static constexpr float kRateBeats[8] = { 0.03125f, 0.0625f, 0.125f, 0.25f,
                                           0.5f,     1.0f,    2.0f,   4.0f };
 static const juce::StringArray kRateLabels { "1/32","1/16","1/8","1/4","1/2","1","2","4" };
 
 //==============================================================================
-juce::AudioProcessorValueTreeState::ParameterLayout BitCrusherProcessor::createParameterLayout()
+juce::AudioProcessorValueTreeState::ParameterLayout HyperCrushProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
@@ -65,11 +65,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout BitCrusherProcessor::createP
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f,
         juce::AudioParameterFloatAttributes{}.withLabel ("")));
 
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "dryWet", 1 }, "Dry/Wet",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f,
+        juce::AudioParameterFloatAttributes{}.withLabel ("%")));
+
     return { params.begin(), params.end() };
 }
 
 //==============================================================================
-BitCrusherProcessor::BitCrusherProcessor()
+HyperCrushProcessor::HyperCrushProcessor()
     : AudioProcessor (BusesProperties()
           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
@@ -85,9 +90,10 @@ BitCrusherProcessor::BitCrusherProcessor()
     apvts.addParameterListener ("lpfReso",      this);
     apvts.addParameterListener ("stutterRate",  this);
     apvts.addParameterListener ("stutterDepth", this);
+    apvts.addParameterListener ("dryWet",       this);
 }
 
-BitCrusherProcessor::~BitCrusherProcessor()
+HyperCrushProcessor::~HyperCrushProcessor()
 {
     apvts.removeParameterListener ("bitDepth",     this);
     apvts.removeParameterListener ("downsample",   this);
@@ -99,10 +105,11 @@ BitCrusherProcessor::~BitCrusherProcessor()
     apvts.removeParameterListener ("lpfReso",      this);
     apvts.removeParameterListener ("stutterRate",  this);
     apvts.removeParameterListener ("stutterDepth", this);
+    apvts.removeParameterListener ("dryWet",       this);
 }
 
 //==============================================================================
-void BitCrusherProcessor::parameterChanged (const juce::String& id, float v)
+void HyperCrushProcessor::parameterChanged (const juce::String& id, float v)
 {
     if      (id == "bitDepth")     bitDepth.store     (v);
     else if (id == "downsample")   downsample.store   (v);
@@ -114,10 +121,11 @@ void BitCrusherProcessor::parameterChanged (const juce::String& id, float v)
     else if (id == "lpfReso")      lpfReso.store      (v);
     else if (id == "stutterRate")  stutterRate.store  (v);
     else if (id == "stutterDepth") stutterDepth.store (v);
+    else if (id == "dryWet")       dryWet.store       (v);
 }
 
 //==============================================================================
-void BitCrusherProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
+void HyperCrushProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
 {
     isPrepared.store (false, std::memory_order_release);
 
@@ -134,6 +142,10 @@ void BitCrusherProcessor::prepareToPlay (double sampleRate, int /*samplesPerBloc
     }
     stutterPhase = 0.0;
 
+    for (int i = 0; i < SCOPE_SIZE; ++i)
+        scopeBuffer[i].store (0.0f, std::memory_order_relaxed);
+    scopeWritePos.store (0, std::memory_order_relaxed);
+
     bitDepth.store     (*apvts.getRawParameterValue ("bitDepth"));
     downsample.store   (*apvts.getRawParameterValue ("downsample"));
     drive.store        (*apvts.getRawParameterValue ("drive"));
@@ -144,18 +156,19 @@ void BitCrusherProcessor::prepareToPlay (double sampleRate, int /*samplesPerBloc
     lpfReso.store      (*apvts.getRawParameterValue ("lpfReso"));
     stutterRate.store  (*apvts.getRawParameterValue ("stutterRate"));
     stutterDepth.store (*apvts.getRawParameterValue ("stutterDepth"));
+    dryWet.store       (*apvts.getRawParameterValue ("dryWet"));
 
     isPrepared.store (true, std::memory_order_release);
 }
 
-void BitCrusherProcessor::releaseResources()
+void HyperCrushProcessor::releaseResources()
 {
     isPrepared.store (false, std::memory_order_release);
 }
 
 //==============================================================================
-void BitCrusherProcessor::processBlock (juce::AudioBuffer<float>& buffer,
-                                        juce::MidiBuffer& /*midiMessages*/)
+void HyperCrushProcessor::processBlock (juce::AudioBuffer<float>& buffer,
+                                         juce::MidiBuffer& /*midiMessages*/)
 {
     if (!isPrepared.load (std::memory_order_acquire))
     {
@@ -178,6 +191,7 @@ void BitCrusherProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float lpfQ       = juce::jlimit (0.5f, 10.0f, lpfReso.load());
         const int   rateIdx    = juce::jlimit (0, 7, (int) stutterRate.load());
         const float depth      = stutterDepth.load();
+        const float mix        = dryWet.load();
 
         const int   hold        = juce::jmax (1, (int) ds);
         const float levels      = std::pow (2.0f, bd - 1.0f) - 1.0f;
@@ -243,7 +257,6 @@ void BitCrusherProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         for (int i = 0; i < nSamples; ++i)
         {
-            // Gate value for this sample (hard gate, hyperpop style)
             const float gate = stutterOn
                 ? ((stutterPhase < 0.5) ? 1.0f : (1.0f - depth))
                 : 1.0f;
@@ -253,7 +266,8 @@ void BitCrusherProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
             for (int ch = 0; ch < dspCh; ++ch)
             {
-                float s = buffer.getSample (ch, i);
+                const float dry = buffer.getSample (ch, i);
+                float s = dry;
 
                 // 1. Pre-clip
                 if (driveOn && isPreClip)
@@ -279,7 +293,7 @@ void BitCrusherProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 if (driveOn && !isPreClip)
                     s = juce::jlimit (-1.0f, 1.0f, s * driveGain);
 
-                // 5. Resonant HPF (biquad direct form II transposed)
+                // 5. Resonant HPF
                 if (hpfOn)
                 {
                     const double in  = s;
@@ -289,7 +303,7 @@ void BitCrusherProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     s = (float) out;
                 }
 
-                // 6. Resonant LPF (biquad direct form II transposed)
+                // 6. Resonant LPF
                 if (lpfOn)
                 {
                     const double in  = s;
@@ -302,7 +316,20 @@ void BitCrusherProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 // 7. Stutter gate
                 s *= gate;
 
+                // 8. Dry/wet mix
+                s = dry + (s - dry) * mix;
+
                 buffer.setSample (ch, i, s);
+            }
+
+            // Write to scope ring buffer (mono mix, relaxed atomics)
+            {
+                float scopeSample = buffer.getSample (0, i);
+                if (dspCh > 1)
+                    scopeSample = (scopeSample + buffer.getSample (1, i)) * 0.5f;
+                int wp = scopeWritePos.load (std::memory_order_relaxed);
+                scopeBuffer[wp].store (scopeSample, std::memory_order_relaxed);
+                scopeWritePos.store ((wp + 1) % SCOPE_SIZE, std::memory_order_relaxed);
             }
         }
     }
@@ -313,20 +340,20 @@ void BitCrusherProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 }
 
 //==============================================================================
-juce::AudioProcessorEditor* BitCrusherProcessor::createEditor()
+juce::AudioProcessorEditor* HyperCrushProcessor::createEditor()
 {
-    return new BitCrusherEditor (*this);
+    return new HyperCrushEditor (*this);
 }
 
 //==============================================================================
-void BitCrusherProcessor::getStateInformation (juce::MemoryBlock& destData)
+void HyperCrushProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
     copyXmlToBinary (*xml, destData);
 }
 
-void BitCrusherProcessor::setStateInformation (const void* data, int sizeInBytes)
+void HyperCrushProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
     if (xmlState && xmlState->hasTagName (apvts.state.getType()))
@@ -336,5 +363,5 @@ void BitCrusherProcessor::setStateInformation (const void* data, int sizeInBytes
 //==============================================================================
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new BitCrusherProcessor();
+    return new HyperCrushProcessor();
 }

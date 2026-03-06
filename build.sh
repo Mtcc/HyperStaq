@@ -14,5 +14,5 @@ cmake --build "$BUILD_DIR" --config Release --parallel
 
 echo ""
 echo "==> Build complete."
-echo "    VST3: $BUILD_DIR/BitCrusher_artefacts/Release/VST3/BitCrusher.vst3"
-echo "    AU:   $BUILD_DIR/BitCrusher_artefacts/Release/AU/BitCrusher.component"
+echo "    VST3: $BUILD_DIR/HyperCrush_artefacts/Release/VST3/HyperCrush.vst3"
+echo "    AU:   $BUILD_DIR/HyperCrush_artefacts/Release/AU/HyperCrush.component"

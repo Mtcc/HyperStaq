@@ -3,12 +3,12 @@
 #include <JuceHeader.h>
 
 //==============================================================================
-class BitCrusherProcessor  : public juce::AudioProcessor,
-                             public juce::AudioProcessorValueTreeState::Listener
+class HyperCrushProcessor  : public juce::AudioProcessor,
+                              public juce::AudioProcessorValueTreeState::Listener
 {
 public:
-    BitCrusherProcessor();
-    ~BitCrusherProcessor() override;
+    HyperCrushProcessor();
+    ~HyperCrushProcessor() override;
 
     //==========================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
@@ -45,6 +45,11 @@ public:
 
     std::atomic<bool> isPrepared { false };
 
+    // Scope ring buffer — written by audio thread, read by UI thread
+    static constexpr int SCOPE_SIZE = 512;
+    std::atomic<float> scopeBuffer[SCOPE_SIZE] = {};
+    std::atomic<int>   scopeWritePos { 0 };
+
 private:
     static constexpr int MAX_CHANNELS = 2;
 
@@ -76,7 +81,8 @@ private:
     std::atomic<float> lpfReso      {  0.707f };
     std::atomic<float> stutterRate  {  3.0f };
     std::atomic<float> stutterDepth {  0.0f };
+    std::atomic<float> dryWet       {  1.0f };
 
     //==========================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BitCrusherProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HyperCrushProcessor)
 };
