@@ -156,8 +156,10 @@ BitCrusherEditor::BitCrusherEditor (BitCrusherProcessor& p)
     setupSlider (bitDepthSlider,    bitDepthLabel,    "BIT DEPTH",    kColCrush);
     setupSlider (downsampleSlider,  downsampleLabel,  "SAMPLE RATE",  kColCrush);
     setupSlider (driveSlider,       driveLabel,       "DRIVE",        kColDrive);
-    setupSlider (hpfCutoffSlider,   hpfCutoffLabel,   "CUTOFF",       kColFilter);
-    setupSlider (hpfResoSlider,     hpfResoLabel,     "RESONANCE",    kColFilter);
+    setupSlider (hpfCutoffSlider,   hpfCutoffLabel,   "HP CUTOFF",    kColFilter);
+    setupSlider (hpfResoSlider,     hpfResoLabel,     "HP RESO",      kColFilter);
+    setupSlider (lpfCutoffSlider,   lpfCutoffLabel,   "LP CUTOFF",    kColFilter);
+    setupSlider (lpfResoSlider,     lpfResoLabel,     "LP RESO",      kColFilter);
     setupSlider (stutterRateSlider, stutterRateLabel, "RATE",         kColGate);
     setupSlider (stutterDepthSlider,stutterDepthLabel,"DEPTH",        kColGate);
 
@@ -177,6 +179,8 @@ BitCrusherEditor::BitCrusherEditor (BitCrusherProcessor& p)
     driveAttachment        = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "drive",        driveSlider);
     hpfCutoffAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "hpfCutoff",   hpfCutoffSlider);
     hpfResoAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "hpfReso",     hpfResoSlider);
+    lpfCutoffAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "lpfCutoff",   lpfCutoffSlider);
+    lpfResoAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "lpfReso",     lpfResoSlider);
     stutterRateAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "stutterRate", stutterRateSlider);
     stutterDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (av, "stutterDepth",stutterDepthSlider);
     clipPreAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (av, "clipPre",     clipPreButton);
@@ -186,6 +190,7 @@ BitCrusherEditor::~BitCrusherEditor()
 {
     for (auto* sl : { &bitDepthSlider, &downsampleSlider, &driveSlider,
                       &hpfCutoffSlider, &hpfResoSlider,
+                      &lpfCutoffSlider, &lpfResoSlider,
                       &stutterRateSlider, &stutterDepthSlider })
         sl->setLookAndFeel (nullptr);
     clipPreButton.setLookAndFeel (nullptr);
@@ -267,9 +272,21 @@ void BitCrusherEditor::resized()
         clipPreButton.setBounds (cell.reduced (0, halfH / 4));
     }
 
-    // Col 2 — FILTER
-    placeKnob (hpfCutoffSlider, hpfCutoffLabel, 2, 0);
-    placeKnob (hpfResoSlider,   hpfResoLabel,   2, 1);
+    // Col 2 — FILTER (4 knobs, subdivided into quarters)
+    {
+        const int quarterH = bodyH / 4;
+        auto filterKnob = [&](juce::Slider& sl, juce::Label& lb, int row)
+        {
+            auto cell = juce::Rectangle<int> (2 * colW, bodyTop + row * quarterH, colW, quarterH)
+                            .reduced (pad, 2);
+            lb.setBounds (cell.removeFromTop (lblH));
+            sl.setBounds (cell);
+        };
+        filterKnob (hpfCutoffSlider, hpfCutoffLabel, 0);
+        filterKnob (hpfResoSlider,   hpfResoLabel,   1);
+        filterKnob (lpfCutoffSlider, lpfCutoffLabel, 2);
+        filterKnob (lpfResoSlider,   lpfResoLabel,   3);
+    }
 
     // Col 3 — GATE
     placeKnob (stutterRateSlider,  stutterRateLabel,  3, 0);

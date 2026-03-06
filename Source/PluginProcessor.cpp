@@ -40,6 +40,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout BitCrusherProcessor::createP
         juce::AudioParameterFloatAttributes{}.withLabel ("Q")));
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "lpfCutoff", 1 }, "LPF Cutoff",
+        juce::NormalisableRange<float> (20.0f, 20000.0f, 0.1f, 0.25f), 20000.0f,
+        juce::AudioParameterFloatAttributes{}.withLabel ("Hz")));
+
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "lpfReso", 1 }, "LPF Reso",
+        juce::NormalisableRange<float> (0.5f, 10.0f, 0.01f, 0.4f), 0.707f,
+        juce::AudioParameterFloatAttributes{}.withLabel ("Q")));
+
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "stutterRate", 1 }, "Stutter Rate",
         juce::NormalisableRange<float> (0.0f, 7.0f, 1.0f), 3.0f,
         juce::AudioParameterFloatAttributes{}
@@ -71,6 +81,8 @@ BitCrusherProcessor::BitCrusherProcessor()
     apvts.addParameterListener ("clipPre",      this);
     apvts.addParameterListener ("hpfCutoff",    this);
     apvts.addParameterListener ("hpfReso",      this);
+    apvts.addParameterListener ("lpfCutoff",    this);
+    apvts.addParameterListener ("lpfReso",      this);
     apvts.addParameterListener ("stutterRate",  this);
     apvts.addParameterListener ("stutterDepth", this);
 }
@@ -83,6 +95,8 @@ BitCrusherProcessor::~BitCrusherProcessor()
     apvts.removeParameterListener ("clipPre",      this);
     apvts.removeParameterListener ("hpfCutoff",    this);
     apvts.removeParameterListener ("hpfReso",      this);
+    apvts.removeParameterListener ("lpfCutoff",    this);
+    apvts.removeParameterListener ("lpfReso",      this);
     apvts.removeParameterListener ("stutterRate",  this);
     apvts.removeParameterListener ("stutterDepth", this);
 }
@@ -96,6 +110,8 @@ void BitCrusherProcessor::parameterChanged (const juce::String& id, float v)
     else if (id == "clipPre")      clipPre.store      (v > 0.5f);
     else if (id == "hpfCutoff")    hpfCutoff.store    (v);
     else if (id == "hpfReso")      hpfReso.store      (v);
+    else if (id == "lpfCutoff")    lpfCutoff.store    (v);
+    else if (id == "lpfReso")      lpfReso.store      (v);
     else if (id == "stutterRate")  stutterRate.store  (v);
     else if (id == "stutterDepth") stutterDepth.store (v);
 }
@@ -113,6 +129,8 @@ void BitCrusherProcessor::prepareToPlay (double sampleRate, int /*samplesPerBloc
         sampleCounter[ch] = 0;
         hpfZ1[ch]         = 0.0;
         hpfZ2[ch]         = 0.0;
+        lpfZ1[ch]         = 0.0;
+        lpfZ2[ch]         = 0.0;
     }
     stutterPhase = 0.0;
 
@@ -122,6 +140,8 @@ void BitCrusherProcessor::prepareToPlay (double sampleRate, int /*samplesPerBloc
     clipPre.store      (*apvts.getRawParameterValue ("clipPre") > 0.5f);
     hpfCutoff.store    (*apvts.getRawParameterValue ("hpfCutoff"));
     hpfReso.store      (*apvts.getRawParameterValue ("hpfReso"));
+    lpfCutoff.store    (*apvts.getRawParameterValue ("lpfCutoff"));
+    lpfReso.store      (*apvts.getRawParameterValue ("lpfReso"));
     stutterRate.store  (*apvts.getRawParameterValue ("stutterRate"));
     stutterDepth.store (*apvts.getRawParameterValue ("stutterDepth"));
 
@@ -154,6 +174,8 @@ void BitCrusherProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const bool  isPreClip  = clipPre.load();
         const float cutHz      = juce::jlimit (20.0f, (float)(currentSampleRate * 0.45), hpfCutoff.load());
         const float Q          = juce::jlimit (0.5f, 10.0f, hpfReso.load());
+        const float lpfCutHz   = juce::jlimit (20.0f, (float)(currentSampleRate * 0.45), lpfCutoff.load());
+        const float lpfQ       = juce::jlimit (0.5f, 10.0f, lpfReso.load());
         const int   rateIdx    = juce::jlimit (0, 7, (int) stutterRate.load());
         const float depth      = stutterDepth.load();
 
@@ -163,6 +185,7 @@ void BitCrusherProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const bool  dsOn        = (hold > 1);
         const bool  driveOn     = (driveDb > 0.05f);
         const bool  hpfOn       = (cutHz > 25.0f);
+        const bool  lpfOn       = (lpfCutHz < (float)(currentSampleRate * 0.44));
         const bool  stutterOn   = (depth > 0.001f);
 
         const float driveGain   = driveOn ? std::pow (10.0f, driveDb / 20.0f) : 1.0f;
@@ -181,6 +204,22 @@ void BitCrusherProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             hB2 =  hB0;
             hA1 = (-2.0 * cosw0)           * a0inv;
             hA2 =  (1.0 - alpha)           * a0inv;
+        }
+
+        // --- LPF biquad coefficients (computed once per block) ---
+        double lB0 = 1.0, lB1 = 0.0, lB2 = 0.0, lA1 = 0.0, lA2 = 0.0;
+        if (lpfOn)
+        {
+            const double w0    = juce::MathConstants<double>::twoPi * lpfCutHz / currentSampleRate;
+            const double cosw0 = std::cos (w0);
+            const double sinw0 = std::sin (w0);
+            const double alpha = sinw0 / (2.0 * lpfQ);
+            const double a0inv = 1.0 / (1.0 + alpha);
+            lB0 =  ((1.0 - cosw0) * 0.5)  * a0inv;
+            lB1 =   (1.0 - cosw0)          * a0inv;
+            lB2 =  lB0;
+            lA1 = (-2.0 * cosw0)           * a0inv;
+            lA2 =  (1.0 - alpha)           * a0inv;
         }
 
         // --- Stutter: sync phase to host transport position ---
@@ -250,7 +289,17 @@ void BitCrusherProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     s = (float) out;
                 }
 
-                // 6. Stutter gate
+                // 6. Resonant LPF (biquad direct form II transposed)
+                if (lpfOn)
+                {
+                    const double in  = s;
+                    const double out = lB0 * in + lpfZ1[ch];
+                    lpfZ1[ch]        = lB1 * in - lA1 * out + lpfZ2[ch];
+                    lpfZ2[ch]        = lB2 * in - lA2 * out;
+                    s = (float) out;
+                }
+
+                // 7. Stutter gate
                 s *= gate;
 
                 buffer.setSample (ch, i, s);

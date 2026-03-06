@@ -31,8 +31,8 @@ private:
     juce::Label        clipPreLabel;
 
     // FILTER
-    juce::Slider hpfCutoffSlider, hpfResoSlider;
-    juce::Label  hpfCutoffLabel,  hpfResoLabel;
+    juce::Slider hpfCutoffSlider, hpfResoSlider, lpfCutoffSlider, lpfResoSlider;
+    juce::Label  hpfCutoffLabel,  hpfResoLabel,  lpfCutoffLabel,  lpfResoLabel;
 
     // GATE
     juce::Slider stutterRateSlider, stutterDepthSlider;
@@ -42,6 +42,7 @@ private:
         bitDepthAttachment, downsampleAttachment,
         driveAttachment,
         hpfCutoffAttachment, hpfResoAttachment,
+        lpfCutoffAttachment, lpfResoAttachment,
         stutterRateAttachment, stutterDepthAttachment;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>

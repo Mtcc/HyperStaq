@@ -56,6 +56,10 @@ private:
     double hpfZ1[MAX_CHANNELS] = {};
     double hpfZ2[MAX_CHANNELS] = {};
 
+    // LPF biquad state — direct form II transposed, per channel
+    double lpfZ1[MAX_CHANNELS] = {};
+    double lpfZ2[MAX_CHANNELS] = {};
+
     // Stutter: single shared phase (L/R gate in lockstep)
     double stutterPhase = 0.0;
 
@@ -68,6 +72,8 @@ private:
     std::atomic<bool>  clipPre      { true  };
     std::atomic<float> hpfCutoff    { 20.0f };
     std::atomic<float> hpfReso      {  0.707f };
+    std::atomic<float> lpfCutoff    { 20000.0f };
+    std::atomic<float> lpfReso      {  0.707f };
     std::atomic<float> stutterRate  {  3.0f };
     std::atomic<float> stutterDepth {  0.0f };
 
