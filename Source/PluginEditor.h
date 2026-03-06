@@ -48,23 +48,25 @@ public:
 private:
     void timerCallback() override;
     void applyPreset (int index);
+    juce::Colour getPresetColour (int index) const;
 
     HyperCrushProcessor& processorRef;
 
     std::unique_ptr<CrushLookAndFeel> lnf;
     ScopeComponent scopeComponent;
+    std::unique_ptr<juce::TooltipWindow> tooltipWindow;
 
-    // Glitch animation state
+    // Animation state
     juce::Random rng;
     int glitchCounter = 0;
     float scanlineOffset = 0.0f;
+    float animTime = 0.0f;
     struct GlitchBar { int y, h; float offset; juce::Colour colour; };
     std::vector<GlitchBar> glitchBars;
 
     // Preset dropdown
     juce::ComboBox presetBox;
     static const std::vector<PresetEntry>& getPresets();
-
 
     // Macro knobs
     juce::Slider glitchSlider, meltSlider, rektSlider, vibeSlider;
