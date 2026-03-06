@@ -1,0 +1,60 @@
+{
+  "Name": "BitCrusher",
+  "Version": "1.0.0",
+  "Factory Info": {
+    "Vendor": "MyPlugins",
+    "URL": "",
+    "E-Mail": "",
+    "Flags": {
+      "Unicode": true,
+      "Classes Discardable": false,
+      "Component Non Discardable": false,
+    },
+  },
+  "Classes": [
+    {
+      "CID": "ABCDEF019182FAEB4D506C6742637268",
+      "Category": "Audio Module Class",
+      "Name": "BitCrusher",
+      "Vendor": "MyPlugins",
+      "Version": "1.0.0",
+      "SDKVersion": "VST 3.7.12",
+      "Sub Categories": [
+        "Fx",
+        "Distortion",
+      ],
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+    {
+      "CID": "ABCDEF011234ABCD4D506C6742637268",
+      "Category": "Component Controller Class",
+      "Name": "BitCrusher",
+      "Vendor": "MyPlugins",
+      "Version": "1.0.0",
+      "SDKVersion": "VST 3.7.12",
+      "Sub Categories": [
+        "Fx",
+        "Distortion",
+      ],
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+    {
+      "CID": "ABCDEF01C0DEF00D4D506C6742637268",
+      "Category": "Plugin Compatibility Class",
+      "Name": "BitCrusher",
+      "Vendor": "MyPlugins",
+      "Version": "1.0.0",
+      "SDKVersion": "VST 3.7.12",
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+  ],
+}

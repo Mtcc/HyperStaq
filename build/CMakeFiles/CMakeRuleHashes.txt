@@ -1,0 +1,5 @@
+# Hashes of file build rules.
+a9083792dc37e6ce4ce09e3b49d9bc9e BitCrusher_artefacts/JuceLibraryCode/BitCrusher_AU/PkgInfo
+98530c8e32bc03fc989de53739e91be6 BitCrusher_artefacts/JuceLibraryCode/BitCrusher_Standalone/PkgInfo
+fb0bdf91ae25c0a673e1fd2931c8533b BitCrusher_artefacts/JuceLibraryCode/BitCrusher_VST3/PkgInfo
+19c505d5e9bc24f166993f35ff01243e BitCrusher_artefacts/JuceLibraryCode/JuceHeader.h

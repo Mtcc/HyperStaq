@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/mattcole/my-vst/build/_deps/juce-subbuild/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

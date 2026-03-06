@@ -1,0 +1,11 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/mattcole/my-vst/build/cmake_install.cmake",
+		"/Users/mattcole/my-vst/build/_deps/juce-build/cmake_install.cmake",
+		"/Users/mattcole/my-vst/build/_deps/juce-build/modules/cmake_install.cmake",
+		"/Users/mattcole/my-vst/build/_deps/juce-build/extras/Build/cmake_install.cmake",
+		"/Users/mattcole/my-vst/build/_deps/juce-build/extras/Build/juceaide/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmake --version)",
+      "Bash(xcode-select -p)",
+      "Read(//Applications/**)",
+      "Read(//Users/mattcole/**)",
+      "Read(//opt/**)",
+      "Bash(xcode-select:*)",
+      "Bash(chmod +x:*)",
+      "Bash(brew install:*)",
+      "Bash(bash:*)",
+      "Bash(cmake:*)",
+      "Bash(~/.zshrc:*)",
+      "Bash(./build.sh:*)",
+      "Bash(cp:*)"
+    ]
+  }
+}
